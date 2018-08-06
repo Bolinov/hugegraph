@@ -43,6 +43,7 @@ import com.baidu.hugegraph.exception.NotSupportException;
 import com.baidu.hugegraph.schema.SchemaManager;
 import com.baidu.hugegraph.structure.HugeFeatures;
 import com.baidu.hugegraph.task.TaskScheduler;
+import com.baidu.hugegraph.type.define.GraphMode;
 import com.baidu.hugegraph.util.E;
 import com.baidu.hugegraph.util.Log;
 
@@ -168,14 +169,14 @@ public class HugeGraphAuthProxy implements Graph {
         this.hugegraph.clearBackend();
     }
 
-    public void restoring(boolean restoring) {
+    public void mode(GraphMode mode) {
         this.verifyPermission(ROLE_ADMIN);
-        this.hugegraph.restoring(restoring);
+        this.hugegraph.mode(mode);
     }
 
-    public boolean restoring() {
+    public GraphMode mode() {
         this.verifyPermission(ROLE_ADMIN);
-        return this.hugegraph.restoring();
+        return this.hugegraph.mode();
     }
 
     public TaskScheduler taskScheduler() {

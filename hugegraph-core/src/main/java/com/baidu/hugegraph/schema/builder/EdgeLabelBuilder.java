@@ -32,6 +32,7 @@ import org.apache.commons.collections.CollectionUtils;
 
 import com.baidu.hugegraph.HugeGraph;
 import com.baidu.hugegraph.backend.id.Id;
+import com.baidu.hugegraph.backend.id.IdGenerator;
 import com.baidu.hugegraph.backend.tx.SchemaTransaction;
 import com.baidu.hugegraph.exception.ExistedException;
 import com.baidu.hugegraph.exception.NotAllowException;
@@ -42,12 +43,14 @@ import com.baidu.hugegraph.schema.SchemaElement;
 import com.baidu.hugegraph.type.HugeType;
 import com.baidu.hugegraph.type.define.Action;
 import com.baidu.hugegraph.type.define.Frequency;
+import com.baidu.hugegraph.type.define.GraphMode;
 import com.baidu.hugegraph.util.CollectionUtil;
 import com.baidu.hugegraph.util.E;
 import com.google.common.collect.ImmutableList;
 
 public class EdgeLabelBuilder implements EdgeLabel.Builder {
 
+    private Id id;
     private String name;
     private String sourceLabel;
     private String targetLabel;
@@ -64,6 +67,7 @@ public class EdgeLabelBuilder implements EdgeLabel.Builder {
     public EdgeLabelBuilder(String name, SchemaTransaction transaction) {
         E.checkNotNull(name, "name");
         E.checkNotNull(transaction, "transaction");
+        this.id = null;
         this.name = name;
         this.sourceLabel = null;
         this.targetLabel = null;
@@ -77,10 +81,16 @@ public class EdgeLabelBuilder implements EdgeLabel.Builder {
         this.transaction = transaction;
     }
 
+
     @Override
     public EdgeLabel build() {
+        Id id = this.transaction.generateId(HugeType.EDGE_LABEL, this.id,
+                                            this.name);
+        return this.build(id);
+    }
+
+    private EdgeLabel build(Id id) {
         HugeGraph graph = this.transaction.graph();
-        Id id = this.transaction.getNextId(HugeType.EDGE_LABEL);
         EdgeLabel edgeLabel = new EdgeLabel(graph, id, this.name);
         edgeLabel.sourceLabel(this.transaction.getVertexLabel(
                               this.sourceLabel).id());
@@ -109,17 +119,13 @@ public class EdgeLabelBuilder implements EdgeLabel.Builder {
 
     @Override
     public EdgeLabel create() {
-        SchemaElement.checkName(this.name,
-                                this.transaction.graph().configuration());
-
-        EdgeLabel edgeLabel = this.transaction.getEdgeLabel(this.name);
+        SchemaTransaction tx = this.transaction;
+        SchemaElement.checkName(this.name, tx.graph().configuration());
+        EdgeLabel edgeLabel = (EdgeLabel) tx.checkExist(
+                  HugeType.EDGE_LABEL, this.name, this.id, this.checkExist);
         if (edgeLabel != null) {
-            if (this.checkExist) {
-                throw new ExistedException("edge label", this.name);
-            }
             return edgeLabel;
         }
-
         if (this.frequency == Frequency.DEFAULT) {
             this.frequency = Frequency.SINGLE;
         }
@@ -131,7 +137,7 @@ public class EdgeLabelBuilder implements EdgeLabel.Builder {
         this.checkNullableKeys(Action.INSERT);
 
         edgeLabel = this.build();
-        this.transaction.addEdgeLabel(edgeLabel);
+        tx.addEdgeLabel(edgeLabel);
         return edgeLabel;
     }
 
@@ -199,6 +205,13 @@ public class EdgeLabelBuilder implements EdgeLabel.Builder {
             return null;
         }
         return this.transaction.rebuildIndex(edgeLabel);
+    }
+
+    @Override
+    public EdgeLabelBuilder id(long id) {
+        E.checkArgument(id != 0L, "Not allowed to assign 0 as edge label id");
+        this.id = IdGenerator.of(id);
+        return this;
     }
 
     @Override

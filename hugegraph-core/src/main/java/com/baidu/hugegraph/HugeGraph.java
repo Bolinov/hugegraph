@@ -66,10 +66,12 @@ import com.baidu.hugegraph.task.TaskManager;
 import com.baidu.hugegraph.task.TaskScheduler;
 import com.baidu.hugegraph.traversal.optimize.HugeGraphStepStrategy;
 import com.baidu.hugegraph.traversal.optimize.HugeVertexStepStrategy;
+import com.baidu.hugegraph.type.define.GraphMode;
 import com.baidu.hugegraph.util.E;
 import com.baidu.hugegraph.util.LockUtil;
 import com.baidu.hugegraph.util.Log;
 import com.baidu.hugegraph.variables.HugeVariables;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.RateLimiter;
 
 /**
@@ -97,7 +99,7 @@ public class HugeGraph implements Graph {
 
     private final String name;
     private boolean closed;
-    private boolean restoring;
+    private GraphMode mode;
 
     private final HugeConfig configuration;
 
@@ -128,7 +130,7 @@ public class HugeGraph implements Graph {
 
         this.name = configuration.get(CoreOptions.STORE);
         this.closed = false;
-        this.restoring = false;
+        this.mode = GraphMode.NONE;
 
         try {
             this.storeProvider = this.loadStoreProvider();
@@ -161,12 +163,17 @@ public class HugeGraph implements Graph {
         return this.closed && this.tx.closed();
     }
 
-    public boolean restoring() {
-        return this.restoring;
+    public GraphMode mode() {
+        return this.mode;
     }
 
-    public void restoring(boolean restoring) {
-        this.restoring = restoring;
+    public void mode(GraphMode mode) {
+        this.mode = mode;
+    }
+
+    public boolean restoring() {
+        return ImmutableSet.of(GraphMode.RESTORING, GraphMode.MERGING)
+                           .contains(this.mode());
     }
 
     public EventHub schemaEventHub() {

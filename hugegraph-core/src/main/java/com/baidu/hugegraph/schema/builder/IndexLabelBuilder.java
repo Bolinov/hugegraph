@@ -28,6 +28,7 @@ import java.util.concurrent.TimeoutException;
 import com.baidu.hugegraph.HugeException;
 import com.baidu.hugegraph.HugeGraph;
 import com.baidu.hugegraph.backend.id.Id;
+import com.baidu.hugegraph.backend.id.IdGenerator;
 import com.baidu.hugegraph.backend.tx.GraphTransaction;
 import com.baidu.hugegraph.backend.tx.SchemaTransaction;
 import com.baidu.hugegraph.config.CoreOptions;
@@ -52,6 +53,7 @@ import com.baidu.hugegraph.util.InsertionOrderUtil;
 
 public class IndexLabelBuilder implements IndexLabel.Builder {
 
+    private Id id;
     private String name;
     private HugeType baseType;
     private String baseValue;
@@ -64,6 +66,7 @@ public class IndexLabelBuilder implements IndexLabel.Builder {
     public IndexLabelBuilder(String name, SchemaTransaction transaction) {
         E.checkNotNull(name, "name");
         E.checkNotNull(transaction, "transaction");
+        this.id = null;
         this.name = name;
         this.indexType = IndexType.SECONDARY;
         this.indexFields = new ArrayList<>();
@@ -73,8 +76,13 @@ public class IndexLabelBuilder implements IndexLabel.Builder {
 
     @Override
     public IndexLabel build() {
+        Id id = this.transaction.generateId(HugeType.INDEX_LABEL, this.id,
+                                            this.name);
+        return this.build(id);
+    }
+
+    private IndexLabel build(Id id) {
         HugeGraph graph = this.transaction.graph();
-        Id id = this.transaction.getNextId(HugeType.INDEX_LABEL);
         IndexLabel indexLabel = new IndexLabel(graph, id, this.name);
         indexLabel.baseType(this.baseType);
         SchemaLabel schemaLabel = this.loadElement();
@@ -91,7 +99,8 @@ public class IndexLabelBuilder implements IndexLabel.Builder {
     public IndexLabel.CreatedIndexLabel createWithTask() {
         SchemaElement.checkName(this.name,
                                 this.transaction.graph().configuration());
-        IndexLabel indexLabel = this.transaction.getIndexLabel(this.name);
+        IndexLabel indexLabel = (IndexLabel) this.transaction.checkExist(
+                   HugeType.INDEX_LABEL, this.name, this.id, this.checkExist);
         if (indexLabel != null) {
             if (this.checkExist) {
                 throw new ExistedException("index label", this.name);
@@ -170,6 +179,14 @@ public class IndexLabelBuilder implements IndexLabel.Builder {
             return null;
         }
         return this.transaction.rebuildIndex(indexLabel);
+    }
+
+    @Override
+    public IndexLabelBuilder id(long id) {
+        E.checkArgument(id != 0L,
+                        "Not allowed to assign 0 as index label id");
+        this.id = IdGenerator.of(id);
+        return this;
     }
 
     @Override

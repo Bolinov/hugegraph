@@ -20,6 +20,7 @@
 package com.baidu.hugegraph.backend.store.hbase;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 
@@ -30,7 +31,6 @@ import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.baidu.hugegraph.backend.id.Id;
-import com.baidu.hugegraph.backend.id.IdGenerator;
 import com.baidu.hugegraph.backend.query.Condition;
 import com.baidu.hugegraph.backend.query.Condition.Relation;
 import com.baidu.hugegraph.backend.query.ConditionQuery;
@@ -54,10 +54,21 @@ public class HbaseTables {
             super(TABLE);
         }
 
-        public synchronized Id nextId(Session session, HugeType type) {
+        public long getCounter(Session session, HugeType type) {
             byte[] key = new byte[]{type.code()};
-            long counter = session.increase(this.table(), CF, key, COL, 1L);
-            return IdGenerator.of(counter);
+            RowIterator results = session.get(this.table(), CF, key);
+            if (results.hasNext()) {
+                Result row = results.next();
+                return ByteBuffer.wrap(row.getValue(CF, COL)).getLong();
+            } else {
+                return 0L;
+            }
+        }
+
+        public void increaseCounter(Session session, HugeType type,
+                                    long increment) {
+            session.increase(this.table(), CF, new byte[]{type.code()},
+                             COL, increment);
         }
     }
 

@@ -485,6 +485,18 @@ public class RocksDBStdSessions extends RocksDBSessions {
         }
 
         /**
+         * Merge a record to an existing key to a table and commit immediately
+         */
+        @Override
+        public void mergeNow(String table, byte[] key, byte[] value) {
+            try {
+                rocksdb().merge(cf(table), key, value);
+            } catch (RocksDBException e) {
+                throw new BackendException(e);
+            }
+        }
+
+        /**
          * Delete a record by key from a table
          */
         @Override

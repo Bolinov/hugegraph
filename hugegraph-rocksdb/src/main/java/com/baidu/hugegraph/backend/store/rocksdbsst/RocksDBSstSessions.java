@@ -257,6 +257,14 @@ public class RocksDBSstSessions extends RocksDBSessions {
         }
 
         /**
+         * Merge a record to an existing key to a table and commit immediately
+         */
+        @Override
+        public void mergeNow(String table, byte[] key, byte[] value) {
+            throw new NotSupportException("RocksDBSstStore mergeNow()");
+        }
+
+        /**
          * Delete a record by key from a table
          */
         @Override

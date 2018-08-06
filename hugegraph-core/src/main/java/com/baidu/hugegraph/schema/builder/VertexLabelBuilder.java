@@ -32,6 +32,7 @@ import org.apache.commons.collections.CollectionUtils;
 
 import com.baidu.hugegraph.HugeGraph;
 import com.baidu.hugegraph.backend.id.Id;
+import com.baidu.hugegraph.backend.id.IdGenerator;
 import com.baidu.hugegraph.backend.tx.SchemaTransaction;
 import com.baidu.hugegraph.exception.ExistedException;
 import com.baidu.hugegraph.exception.NotAllowException;
@@ -41,6 +42,7 @@ import com.baidu.hugegraph.schema.SchemaElement;
 import com.baidu.hugegraph.schema.VertexLabel;
 import com.baidu.hugegraph.type.HugeType;
 import com.baidu.hugegraph.type.define.Action;
+import com.baidu.hugegraph.type.define.GraphMode;
 import com.baidu.hugegraph.type.define.IdStrategy;
 import com.baidu.hugegraph.util.CollectionUtil;
 import com.baidu.hugegraph.util.E;
@@ -48,6 +50,7 @@ import com.google.common.collect.ImmutableList;
 
 public class VertexLabelBuilder implements VertexLabel.Builder {
 
+    private Id id;
     private String name;
     private IdStrategy idStrategy;
     private Set<String> properties;
@@ -62,6 +65,7 @@ public class VertexLabelBuilder implements VertexLabel.Builder {
     public VertexLabelBuilder(String name, SchemaTransaction transaction) {
         E.checkNotNull(name, "name");
         E.checkNotNull(transaction, "transaction");
+        this.id = null;
         this.name = name;
         this.idStrategy = IdStrategy.DEFAULT;
         this.properties = new HashSet<>();
@@ -76,8 +80,13 @@ public class VertexLabelBuilder implements VertexLabel.Builder {
 
     @Override
     public VertexLabel build() {
+        Id id = this.transaction.generateId(HugeType.VERTEX_LABEL, this.id,
+                                            this.name);
+        return this.build(id);
+    }
+
+    private VertexLabel build(Id id) {
         HugeGraph graph = this.transaction.graph();
-        Id id = this.transaction.getNextId(HugeType.VERTEX_LABEL);
         VertexLabel vertexLabel = new VertexLabel(graph, id, this.name);
         vertexLabel.idStrategy(this.idStrategy);
         vertexLabel.enableLabelIndex(this.enableLabelIndex == null ||
@@ -103,23 +112,20 @@ public class VertexLabelBuilder implements VertexLabel.Builder {
 
     @Override
     public VertexLabel create() {
-        SchemaElement.checkName(this.name,
-                                this.transaction.graph().configuration());
-        VertexLabel vertexLabel = this.transaction.getVertexLabel(this.name);
+        SchemaTransaction tx = this.transaction;
+        SchemaElement.checkName(this.name, tx.graph().configuration());
+        VertexLabel vertexLabel = (VertexLabel) tx.checkExist(
+                    HugeType.VERTEX_LABEL, this.name, this.id, this.checkExist);
         if (vertexLabel != null) {
-            if (this.checkExist) {
-                throw new ExistedException("vertex label", this.name);
-            }
             return vertexLabel;
         }
-
         this.checkProperties(Action.INSERT);
         this.checkIdStrategy();
         this.checkNullableKeys(Action.INSERT);
         this.checkUserData(Action.INSERT);
 
         vertexLabel = this.build();
-        this.transaction.addVertexLabel(vertexLabel);
+        tx.addVertexLabel(vertexLabel);
         return vertexLabel;
     }
 
@@ -188,6 +194,14 @@ public class VertexLabelBuilder implements VertexLabel.Builder {
             return null;
         }
         return this.transaction.rebuildIndex(vertexLabel);
+    }
+
+    @Override
+    public VertexLabelBuilder id(long id) {
+        E.checkArgument(id != 0L,
+                        "Not allowed to assign 0 as vertex label id");
+        this.id = IdGenerator.of(id);
+        return this;
     }
 
     @Override

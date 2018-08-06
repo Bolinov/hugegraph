@@ -230,7 +230,7 @@ public class Example2 {
               .ifNotExist()
               .create();
 
-        graph.tx().open();
+//        graph.tx().open();
 
         Vertex marko = graph.addVertex(T.label, "person", "name", "marko",
                                        "age", 29, "city", "Beijing");
